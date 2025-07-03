@@ -69,7 +69,8 @@ class TNetwork:
         open_ = 0
         stat = None
         # Encuentra el lazo desde el nodo cerrado
-        loop = self.findloop(close, ison.copy())
+        flag=ison.copy()
+        loop = self.findloop(close, flag)
         # Filtra las ramas del lazo que son del tipo 'switch'
         opened = np.array([r for r in loop if self.ltypes[r]],dtype=int)-1
 
@@ -79,7 +80,7 @@ class TNetwork:
 
         ok, V,_ = self.loadflowsparse(isonj)
         if not ok:
-                return open_, stat
+            return open_, stat
         # Calcula corriente en cada rama 'opened'
         n = (self.branches[opened, 0:2].astype(int))-1
         Z = self.branches[opened, 4] + 1j * self.branches[opened, 5]
@@ -89,44 +90,48 @@ class TNetwork:
         index = np.argsort(I,  kind='mergesort')
         minfk = float("inf")
         lastloss = float("inf")
+       
         for j in index:
-                isonj[opened] = True
-                isonj[opened[j]] = False
-                self.evaluate_on(isonj)
-                if self.status["error"] == 0:
-                     statj = self.status
-                     lossj = statj["fun"][jfun]
-                     if lossj > lastloss:
-                          break
-                     lastloss = lossj
-                     if lossj < minfk:
-                          open_ = opened[j] 
-                          stat = statj
+            isonj[opened] = True
+            isonj[opened[j]] = False
+            self.evaluate_on(isonj)
+            if self.status["error"] == 0:
+                statj = self.status.copy()
+                lossj = statj["fun"][jfun]
+                if lossj > lastloss:
+                    break
+                lastloss = lossj
+                if lossj < minfk:
+                    open_ = opened[j]
+                    stat = statj.copy()
+            
         return open_, stat
 
 
     def SLE_Search(self, stat, jfun):
         # Estado inicial
         if stat is None:
-                stat = self.status0
+            stat = self.status0
 
         # Convertir 'opened' en un array 1D
         openset = stat["opened"].flatten()
         k = 0
 
         while k < len(openset):
-                # Crear vector ison de interruptores encendidos
-                ison = np.ones(self.M, dtype=bool)
-                ison[stat["opened"]] = False
-                # Ejecutar la función closelink
-                openk, statk = self.closelink(openset[k], ison, jfun)
-                # Verificar mejora y agregar nuevos interruptores abiertos
-                if openk> 0 and statk["fun"][jfun] < stat["fun"][jfun]:
-                     openset = np.concatenate((openset, openk))
-                     stat = statk
+            # Crear vector ison de interruptores encendidos
+            ison = np.ones(self.M, dtype=bool)
+            ison[stat["opened"]] = False
+            # Ejecutar la función closelink
+            openk, statk = self.closelink(openset[k], ison, jfun)
+            # Verificar mejora y agregar nuevos interruptores abierto
 
-                k += 1
+            if openk and statk["fun"][jfun] < stat["fun"][jfun]:
+                openk = np.atleast_1d(openk)
+                openset = np.concatenate((openset, openk))
+                raise Exception("error")
+                stat = statk
 
+            k += 1
         self.status = stat
 
 
@@ -482,7 +487,7 @@ class TNetwork:
         s = self.sources[:, 0].astype(np.int32)
 
         if ison is None:
-                ison = self.branches[:, 2].astype(bool)
+            ison = self.branches[:, 2].astype(bool)
 
         opened = np.where(~ison)[0]
 
@@ -538,45 +543,44 @@ class TNetwork:
     def evaluate_on(self, ison):
         isempty=ison is None
         if isempty:
-                ison=self.branches[:,2].astype(bool)
+            ison=self.branches[:,2].astype(bool)
         opened= np.where(~ison)[0]
         err=None
         if self.lfmethod == 'inject':
-                ok, V, loss, pgen=self.loadflow(ison)
+            ok, V, loss, pgen=self.loadflow(ison)
         else:
-                if not self.lffast:
-                    ok, err, V, loss, pgen, smin = self.radialloadflow(ison)
+            if not self.lffast:
+                ok, err, V, loss, pgen, smin = self.radialloadflow(ison)
         self.status['error'] = err
         self.status['fun'] = np.zeros(5)
         self.status["opened"]=opened
 
         if not ok:
                 if self.status['error'] == 1:
-                     self.status['fun'][:] = 20000
+                    self.status['fun'][:] = 20000
 
                 elif self.status['error'] == 2:
-                     self.status['fun'][:] = 10000
+                    self.status['fun'][:] = 10000
                 return
         if isempty:
                 self.pk=np.argmax(pgen)
 
-        MW = np.max(loss)
-        MWh = np.sum(loss)
-        Cost=np.sum(loss * self.cost)
+        MW = np.max(loss)* self.mvabase
+        MWh = np.sum(loss)* self.mvabase
+        Cost=np.sum(loss * self.cost)* self.mvabase
         if self.time==1:
                 Cost=MWh
         Vmin = np.min(np.abs(V))
         Smin = np.min(smin)
 
-        self.status['fun'][0] = MW * self.mvabase
-        self.status['fun'][1] = MWh * self.mvabase
-        self.status['fun'][2] = Cost * self.mvabase
+        self.status['fun'][0] = MW 
+        self.status['fun'][1] = MWh 
+        self.status['fun'][2] = Cost 
         self.status['fun'][3] = -Vmin
         self.status['fun'][4] = -Smin
 
         if isempty:
-                self.status0 = self.status.copy()
-                self.status0['opened'] = self.status['opened'].copy()
+            self.status0 = self.status.copy()
 
    
     def findlinks(self): #es equivalente a matLab

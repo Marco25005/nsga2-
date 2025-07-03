@@ -54,7 +54,8 @@ class TRecfGNSGA2(TNSGA2):          # ← hereda de tu base NSGA-II
             self.variable = np.zeros((2 * npop, L + self.nobjs))
 
             # 1) Primer individuo: mejora del caso base
-            y = self.net.improve(self.net.status0["opened"], 3)
+            y = self.net.improve(self.net.status0["opened"], 2)
+            print(y)
             self.variable[0, :] = np.hstack(
                 (y, self.net.status0["fun"][2 : 2 + self.nobjs])
             )
