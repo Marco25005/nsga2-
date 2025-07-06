@@ -72,7 +72,7 @@ class TNetwork:
         flag=ison.copy()
         loop = self.findloop(close, flag)
         # Filtra las ramas del lazo que son del tipo 'switch'
-        opened = np.array([r for r in loop if self.ltypes[r]],dtype=int)-1
+        opened = np.array([r for r in loop if self.ltypes[r-1]],dtype=int)-1
 
         # Se prueba el lazo con la rama 'close' forzada a activa
         isonj = ison.copy()
@@ -128,7 +128,6 @@ class TNetwork:
             if openk and statk["fun"][jfun] < stat["fun"][jfun]:
                 openk = np.atleast_1d(openk)
                 openset = np.concatenate((openset, openk))
-                raise Exception("error")
                 stat = statk
 
             k += 1
@@ -497,26 +496,22 @@ class TNetwork:
 
         order = np.zeros(M1, dtype=np.int32)
         circ = np.zeros((self.N, 1), dtype=np.int32)
-
-        recorridos = []  # índices visitados en orden
-
+        m_counter = [0] # Inicializa m como una lista con un solo elemento
         for k in range(1, len(s) + 1):
                 flag = np.ones(M1, dtype=np.uint8)
-                ok, _ = circuit.findcircuit(n, circ, order, flag, s[k - 1], k)
+                ok= circuit.findcircuit(n, circ, order, flag, s[k - 1], k,m_counter)
 
                 if not ok:
                      return False, n, opened
+                # Recolectar todos los índices asignados en order > 0
+        recorridos = np.where(order > 0)[0]
 
-                # Guardamos los índices que fueron asignados en esta iteración
-                recorridos.extend(np.where(order > 0)[0].tolist())
+        # Preservar el orden según el valor de 'order'
+        orden_valores = order[recorridos]
+        sorted_indices = recorridos[np.argsort(orden_valores)]
 
-        # Eliminar duplicados preservando orden
-        vistos = set()
-        indices_unicos = [i for i in recorridos if not (i in vistos or vistos.add(i))]
-
-        # Ordenar n correctamente
-        n = n[indices_unicos]
-
+        # Reordenar 'n' finalmente
+        n = n[sorted_indices]
         if self.caps is not None:
                 ok = (
                      np.all(circ[self.loads[:, 0].astype(int)] > 0)
