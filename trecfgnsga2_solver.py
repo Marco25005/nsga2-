@@ -55,7 +55,6 @@ class TRecfGNSGA2(TNSGA2):          # ← hereda de tu base NSGA-II
 
             # 1) Primer individuo: mejora del caso base
             y = self.net.improve(self.net.status0["opened"], 2)
-            print(y)
             self.variable[0, :] = np.hstack(
                 (y, self.net.status0["fun"][2 : 2 + self.nobjs])
             )
@@ -71,7 +70,7 @@ class TRecfGNSGA2(TNSGA2):          # ← hereda de tu base NSGA-II
                 while True:
                     _, y = self.net.prim()          # devuelve (error_flag, config)
                     self.net.evaluate_off(y)
-                    if self.net.status.error == 0:
+                    if self.net.status["error"] == 0:
                         break
 
                 if self.verb:
@@ -79,10 +78,10 @@ class TRecfGNSGA2(TNSGA2):          # ← hereda de tu base NSGA-II
 
                 # Lanza mejora con un objetivo aleatorio (3…nobjs+2)
                 y = self.net.improve(
-                    self.net.status.opened, 2 + rng.integers(1, self.nobjs + 1)
+                    self.net.status["opened"], 2 + rng.integers(1, self.nobjs + 1)
                 )
                 self.variable[i, :] = np.hstack(
-                    (y, self.net.status.fun[2 : 2 + self.nobjs])
+                    (y, self.net.status["fun"][2 : 2 + self.nobjs])
                 )
 
             if self.verb:

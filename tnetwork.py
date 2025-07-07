@@ -112,18 +112,14 @@ class TNetwork:
         # Estado inicial
         if stat is None:
             stat = self.status0
-
         # Convertir 'opened' en un array 1D
         openset = stat["opened"].flatten()
         k = 0
 
         while k < len(openset):
-            # Crear vector ison de interruptores encendidos
             ison = np.ones(self.M, dtype=bool)
             ison[stat["opened"]] = False
-            # Ejecutar la función closelink
             openk, statk = self.closelink(openset[k], ison, jfun)
-            # Verificar mejora y agregar nuevos interruptores abierto
 
             if openk and statk["fun"][jfun] < stat["fun"][jfun]:
                 openk = np.atleast_1d(openk)
@@ -176,7 +172,7 @@ class TNetwork:
         return loop
 
     
-    def loadflowsparse(self, ison): # es equivalente a MatLab
+    def loadflowsparse(self, ison): # revisar
         n = self.branches[np.where(ison)][:, [0, 1, 4, 5]]
         Z=n[:,2]+1j*n[:,3]
         nl=(self.loads[:,0].astype(int))-1
@@ -236,30 +232,25 @@ class TNetwork:
         dS=np.sum(Sg)-np.sum(Sl)
         return ok, V.flatten(), dS
 
-    def prim(self): #revisar despues
+    def prim(self): #error aqui
         # CREA RADIAL ALEATORIO
         N1 = []
         N2 = []
 
         # ramas no analizadas
-        flag = np.ones(self.MT, dtype=complex)
+        flag = np.ones(self.MT, dtype=int)
 
         # nro de ramas conectadas
         M1 = self.N - 1
-
-        # nodo origen aleatorio
-        # D = 1 + round(np.random.rand(1) * (self.N - 1))
-        # vamos a poner la fuente siempre
         S = self.sources.shape[0]
 
         if S > 1:
-                D = [self.N] + self.sources[:, 0].tolist()
-                N1= list(range(self.MT - S + 1, self.MT + 1))
-                N1.extend(N1)
-                for idx in N1:
-                     flag[idx - 1] = 0
+            D = [self.N] + self.sources[:, 0].astype(int).tolist()
+            N1= list(range(self.MT - S + 1, self.MT + 1))
+            for idx in N1:
+                flag[idx - 1] = 0
         else:
-                D = self.sources[0]
+            D = self.sources[0].astype(int).tolist()
 
 
         while len(N1) < M1:
@@ -269,11 +260,11 @@ class TNetwork:
                 for i_node in D:
 
                     if 0 <= i_node - 1 < len(self.link):
-                          for j in range(len(self.link[i_node - 1])):
-                                r = self.link[i_node - 1][j]
-                                if flag[r - 1]:
-                                     R.append(r)
-                                     n.append(self.next[i_node - 1][j])
+                        for j in range(len(self.link[i_node - 1])):
+                            r = self.link[i_node - 1][j]
+                            if flag[r - 1]:
+                                R.append(r)
+                                n.append(self.next[i_node - 1][j])
 
                 if len(R)==0:
                     break
@@ -287,7 +278,9 @@ class TNetwork:
 
                 if n[i] not in D:
                     # es radial
+
                     D.append(n[i])
+                   
                     N1.append(r)
                 else:
                     N2.append(r)
@@ -295,10 +288,7 @@ class TNetwork:
         # si quedan ramas no utilizadas se ponen en N2
         u = np.where(flag == 1)[0] + 1
         if u.size > 0:
-                N2.extend(u.tolist())
-
-        # N2 = sorted(N2) # Uncomment if you need N2 sorted
-
+            N2.extend(u.tolist())
         return N1, N2
 
 
